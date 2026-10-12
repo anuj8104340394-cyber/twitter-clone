@@ -1,0 +1,70 @@
+const mongoose = require('mongoose');
+
+const postSchema = new mongoose.Schema(
+  {
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Post author is required']
+    },
+    text: {
+      type: String,
+      required: [true, 'Post text cannot be empty'],
+      trim: true,
+      maxlength: [280, 'Post text cannot exceed 280 characters']
+    },
+    image: {
+      type: String,
+      default: ''
+    },
+    location: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    status: {
+      type: String,
+      enum: ['open', 'in_progress', 'resolved', 'rejected'],
+      default: 'open'
+    },
+    statusNote: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    statusUpdatedAt: {
+      type: Date
+    },
+    statusUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    isComplaint: {
+      type: Boolean,
+      default: false
+    },
+    complaintDepartment: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    isEdited: {
+      type: Boolean,
+      default: false
+    },
+    editedAt: {
+      type: Date
+    }
+  },
+  {
+    timestamps: true
+  }
+);
+
+module.exports = mongoose.model('Post', postSchema);
