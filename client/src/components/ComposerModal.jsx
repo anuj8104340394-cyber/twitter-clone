@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Image, MapPin, Loader2, Send, AtSign } from 'lucide-react';
+import { X, Image, Video, MapPin, Loader2, Send, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI, usersAPI } from '../services/api';
 
@@ -8,11 +8,13 @@ export default function ComposerModal({ isOpen, onClose, onPostCreated }) {
   const [text, setText] = useState('');
   const [location, setLocation] = useState('');
   const [showLocationInput, setShowLocationInput] = useState(false);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null); // 'image' | 'video'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const videoInputRef = useRef(null);
   const textareaRef = useRef(null);
 
   // Mention autocomplete state
@@ -40,25 +42,31 @@ export default function ComposerModal({ isOpen, onClose, onPostCreated }) {
 
   if (!isOpen) return null;
 
-  const handleImageChange = (e) => {
+  const handleMediaChange = (e, type) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image file must be under 5MB');
+      const isVid = type === 'video' || file.type.startsWith('video/');
+      const maxSize = isVid ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      const sizeLabel = isVid ? '50MB' : '10MB';
+
+      if (file.size > maxSize) {
+        setError(`${isVid ? 'Video' : 'Photo'} file size must be under ${sizeLabel}`);
         return;
       }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+
+      setMediaFile(file);
+      setMediaType(isVid ? 'video' : 'image');
+      setMediaPreview(URL.createObjectURL(file));
       setError('');
     }
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const removeMedia = () => {
+    setMediaFile(null);
+    setMediaPreview(null);
+    setMediaType(null);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
   const handleTextChange = async (e) => {
@@ -128,15 +136,15 @@ export default function ComposerModal({ isOpen, onClose, onPostCreated }) {
       if (location.trim()) {
         formData.append('location', location.trim());
       }
-      if (imageFile) {
-        formData.append('image', imageFile);
+      if (mediaFile) {
+        formData.append('image', mediaFile);
       }
 
       const res = await postsAPI.createPost(formData);
       if (res.data.success) {
         setText('');
         setLocation('');
-        removeImage();
+        removeMedia();
         onClose();
         if (onPostCreated) {
           onPostCreated(res.data.post);
@@ -239,18 +247,27 @@ export default function ComposerModal({ isOpen, onClose, onPostCreated }) {
               </div>
             )}
 
-            {/* Uploaded Image Preview */}
-            {imagePreview && (
-              <div className="relative mt-2 mb-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-72">
-                <img
-                  src={imagePreview}
-                  alt="Attachment preview"
-                  className="w-full h-auto object-cover max-h-72 rounded-xl"
-                />
+            {/* Uploaded Media Preview (Photo or Video) */}
+            {mediaPreview && (
+              <div className="relative mt-2 mb-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-72 flex items-center justify-center">
+                {mediaType === 'video' ? (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    playsInline
+                    className="w-full max-h-72 rounded-xl bg-black object-contain"
+                  />
+                ) : (
+                  <img
+                    src={mediaPreview}
+                    alt="Attachment preview"
+                    className="w-full h-auto object-cover max-h-72 rounded-xl"
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 p-2 bg-black/80 hover:bg-black text-white rounded-full transition min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  onClick={removeMedia}
+                  className="absolute top-2 right-2 p-2 bg-black/80 hover:bg-black text-white rounded-full transition min-w-[36px] min-h-[36px] flex items-center justify-center z-10"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -267,22 +284,39 @@ export default function ComposerModal({ isOpen, onClose, onPostCreated }) {
 
       {/* Bottom Toolbar Sticky above keyboard */}
       <div className="border-t border-zinc-800/80 bg-zinc-950/95 px-4 py-2.5 flex items-center justify-between pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           {/* Image Input */}
           <input
             type="file"
             accept="image/*"
-            ref={fileInputRef}
-            onChange={handleImageChange}
+            ref={imageInputRef}
+            onChange={(e) => handleMediaChange(e, 'image')}
             className="hidden"
             id="mobile-modal-image-input"
           />
           <label
             htmlFor="mobile-modal-image-input"
-            className="p-2.5 text-sky-400 hover:bg-sky-500/10 rounded-full cursor-pointer transition min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-2 text-sky-400 hover:bg-sky-500/10 rounded-full cursor-pointer transition min-w-[40px] min-h-[40px] flex items-center justify-center"
             title="Add photo"
           >
             <Image className="w-5 h-5" />
+          </label>
+
+          {/* Video Input */}
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime,video/*"
+            ref={videoInputRef}
+            onChange={(e) => handleMediaChange(e, 'video')}
+            className="hidden"
+            id="mobile-modal-video-input"
+          />
+          <label
+            htmlFor="mobile-modal-video-input"
+            className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-full cursor-pointer transition min-w-[40px] min-h-[40px] flex items-center justify-center"
+            title="Add video (MP4, WebM up to 50MB)"
+          >
+            <Video className="w-5 h-5" />
           </label>
 
           {/* Location Chip / Expandable input */}

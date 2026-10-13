@@ -117,6 +117,8 @@ const createPost = async (req, res) => {
     }
 
     let imageUrl = '';
+    let mediaType = 'none';
+
     if (req.file) {
       // If Cloudinary was used, req.file.path is the online HTTPS URL
       if (
@@ -127,8 +129,10 @@ const createPost = async (req, res) => {
       } else {
         imageUrl = `/uploads/${req.file.filename}`;
       }
+      mediaType = req.file.mimetype && req.file.mimetype.startsWith('video/') ? 'video' : 'image';
     } else if (req.body.image) {
       imageUrl = req.body.image;
+      mediaType = /\.(mp4|webm|mov|mkv)(\?.*)?$/i.test(imageUrl) ? 'video' : 'image';
     }
 
     const trimmedText = text.trim();
@@ -137,6 +141,7 @@ const createPost = async (req, res) => {
       author: req.user._id,
       text: trimmedText,
       image: imageUrl,
+      mediaType,
       location: location ? location.trim() : '',
       likes: []
     });

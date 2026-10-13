@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Image, MapPin, X, Loader2, Send, AtSign } from 'lucide-react';
+import { Image, Video, MapPin, X, Loader2, Send, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI, usersAPI } from '../services/api';
 
@@ -7,11 +7,13 @@ export default function CreatePostBox({ onPostCreated }) {
   const { user, isAuthenticated } = useAuth();
   const [text, setText] = useState('');
   const [location, setLocation] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null); // 'image' | 'video'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const videoInputRef = useRef(null);
   const textareaRef = useRef(null);
 
   // Mention autocomplete state
@@ -21,25 +23,31 @@ export default function CreatePostBox({ onPostCreated }) {
 
   const maxLength = 280;
 
-  const handleImageChange = (e) => {
+  const handleMediaChange = (e, type) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image file must be under 5MB');
+      const isVid = type === 'video' || file.type.startsWith('video/');
+      const maxSize = isVid ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      const sizeLabel = isVid ? '50MB' : '10MB';
+
+      if (file.size > maxSize) {
+        setError(`${isVid ? 'Video' : 'Photo'} file size must be under ${sizeLabel}`);
         return;
       }
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+
+      setMediaFile(file);
+      setMediaType(isVid ? 'video' : 'image');
+      setMediaPreview(URL.createObjectURL(file));
       setError('');
     }
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const removeMedia = () => {
+    setMediaFile(null);
+    setMediaPreview(null);
+    setMediaType(null);
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (videoInputRef.current) videoInputRef.current.value = '';
   };
 
   // Detect @mention trigger while typing
@@ -130,15 +138,15 @@ export default function CreatePostBox({ onPostCreated }) {
       if (location.trim()) {
         formData.append('location', location.trim());
       }
-      if (imageFile) {
-        formData.append('image', imageFile);
+      if (mediaFile) {
+        formData.append('image', mediaFile);
       }
 
       const res = await postsAPI.createPost(formData);
       if (res.data.success) {
         setText('');
         setLocation('');
-        removeImage();
+        removeMedia();
         setMentionInfo(null);
         setSuggestions([]);
         if (onPostCreated) {
@@ -242,18 +250,28 @@ export default function CreatePostBox({ onPostCreated }) {
               </div>
             )}
 
-            {/* Uploaded Image Preview */}
-            {imagePreview && (
-              <div className="relative mt-2 mb-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-80">
-                <img
-                  src={imagePreview}
-                  alt="Attachment preview"
-                  className="w-full h-auto object-cover max-h-80 rounded-xl"
-                />
+            {/* Uploaded Media Preview (Photo or Video) */}
+            {mediaPreview && (
+              <div className="relative mt-2 mb-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-80 flex items-center justify-center">
+                {mediaType === 'video' ? (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    playsInline
+                    className="w-full max-h-80 rounded-xl bg-black object-contain"
+                  />
+                ) : (
+                  <img
+                    src={mediaPreview}
+                    alt="Attachment preview"
+                    className="w-full h-auto object-cover max-h-80 rounded-xl"
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 p-1.5 bg-black/75 hover:bg-black text-white rounded-full transition"
+                  onClick={removeMedia}
+                  className="absolute top-2 right-2 p-1.5 bg-black/75 hover:bg-black text-white rounded-full transition z-10"
+                  title="Remove media"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -267,13 +285,13 @@ export default function CreatePostBox({ onPostCreated }) {
 
             {/* Bottom Actions Row */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-zinc-800/80">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 sm:space-x-2">
                 {/* Image Upload Input */}
                 <input
                   type="file"
                   accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleImageChange}
+                  ref={imageInputRef}
+                  onChange={(e) => handleMediaChange(e, 'image')}
                   className="hidden"
                   id="post-file-input"
                 />
@@ -283,6 +301,23 @@ export default function CreatePostBox({ onPostCreated }) {
                   title="Add photo"
                 >
                   <Image className="w-5 h-5" />
+                </label>
+
+                {/* Video Upload Input */}
+                <input
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/*"
+                  ref={videoInputRef}
+                  onChange={(e) => handleMediaChange(e, 'video')}
+                  className="hidden"
+                  id="post-video-input"
+                />
+                <label
+                  htmlFor="post-video-input"
+                  className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-full cursor-pointer transition"
+                  title="Add video (MP4, WebM up to 50MB)"
+                >
+                  <Video className="w-5 h-5" />
                 </label>
 
                 {/* Optional Location Input */}

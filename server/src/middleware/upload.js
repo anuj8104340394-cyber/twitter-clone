@@ -21,17 +21,28 @@ if (isCloudinaryConfigured) {
     api_secret: process.env.CLOUDINARY_API_SECRET
   });
 
-  // Cloudinary Online Storage
+  // Cloudinary Online Storage (Supports Images & Videos)
   storage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-      folder: 'twitter_posts',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
-      transformation: [{ width: 1200, crop: 'limit' }]
+    params: async (req, file) => {
+      const isVideo = file.mimetype && file.mimetype.startsWith('video/');
+      if (isVideo) {
+        return {
+          folder: 'twitter_videos',
+          resource_type: 'video',
+          allowed_formats: ['mp4', 'mov', 'webm', 'mkv', 'avi']
+        };
+      }
+      return {
+        folder: 'twitter_posts',
+        resource_type: 'image',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+        transformation: [{ width: 1200, crop: 'limit' }]
+      };
     }
   });
 
-  console.log('☁️ Storage mode: Cloudinary (Online Cloud Storage active)');
+  console.log('☁️ Storage mode: Cloudinary (Online Cloud Storage active - Photos & Videos)');
 } else {
   // Fallback to local storage if Cloudinary keys not provided yet
   const uploadDir = path.join(__dirname, '../../uploads');
@@ -46,7 +57,8 @@ if (isCloudinaryConfigured) {
     filename: function (req, file, cb) {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const ext = path.extname(file.originalname).toLowerCase();
-      cb(null, `img-${uniqueSuffix}${ext}`);
+      const prefix = file.mimetype && file.mimetype.startsWith('video/') ? 'vid' : 'img';
+      cb(null, `${prefix}-${uniqueSuffix}${ext}`);
     }
   });
 
@@ -54,20 +66,23 @@ if (isCloudinaryConfigured) {
 }
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp|gif/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+  const allowedImageExts = /jpeg|jpg|png|webp|gif/;
+  const allowedVideoExts = /mp4|mov|webm|mkv|avi/;
+  const ext = path.extname(file.originalname).toLowerCase().replace('.', '');
 
-  if (extname && mimetype) {
+  const isImage = file.mimetype && file.mimetype.startsWith('image/') && (allowedImageExts.test(ext) || ext === '');
+  const isVideo = file.mimetype && file.mimetype.startsWith('video/') && (allowedVideoExts.test(ext) || ext === '');
+
+  if (isImage || isVideo) {
     return cb(null, true);
   } else {
-    cb(new Error('Only image files (jpg, jpeg, png, webp, gif) are allowed!'), false);
+    cb(new Error('Only photos (jpg, png, webp, gif) or videos (mp4, mov, webm) are allowed!'), false);
   }
 };
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
   fileFilter
 });
 

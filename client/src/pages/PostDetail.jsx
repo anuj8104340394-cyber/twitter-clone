@@ -297,16 +297,27 @@ export default function PostDetail() {
           <FormattedText text={post.text} />
         </p>
 
-        {/* Image */}
-        {/* Attached photo */}
+        {/* Attached photo / video */}
         {post.image && (
-          <div className="my-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
-            <img
-              src={post.image}
-              alt="Post visual"
-              className="w-full max-h-[480px] object-contain"
-            />
-          </div>
+          (post.mediaType === 'video' || /\.(mp4|webm|mov|mkv)(\?.*)?$/i.test(post.image)) ? (
+            <div className="my-3 rounded-2xl overflow-hidden border border-zinc-800 bg-black">
+              <video
+                src={post.image}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full max-h-[500px] object-contain rounded-2xl bg-black"
+              />
+            </div>
+          ) : (
+            <div className="my-3 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950">
+              <img
+                src={post.image}
+                alt="Post visual"
+                className="w-full max-h-[480px] object-contain"
+              />
+            </div>
+          )
         )}
 
 

@@ -143,6 +143,10 @@ export default function PostCard({ post, onDelete, onUpdate }) {
     ? formatDistanceToNow(new Date(currentPost.createdAt), { addSuffix: true })
     : '';
 
+  const isVideo =
+    currentPost.mediaType === 'video' ||
+    (currentPost.image && /\.(mp4|webm|mov|mkv)(\?.*)?$/i.test(currentPost.image));
+
   return (
     <>
       <article
@@ -220,22 +224,37 @@ export default function PostCard({ post, onDelete, onUpdate }) {
             <FormattedText text={currentPost.text} />
           </p>
 
-          {/* Attached Image (full width, rounded-2xl, max-h 320px) */}
+          {/* Attached Media (Photo or Video) */}
           {currentPost.image && (
-            <div
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowFullImage(true);
-              }}
-              className="mt-2.5 mb-2 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-80 flex items-center justify-center cursor-pointer group/img"
-            >
-              <img
-                src={currentPost.image}
-                alt="Post visual"
-                className="w-full h-auto max-h-80 object-cover group-hover/img:scale-[1.01] transition-transform duration-200"
-                loading="lazy"
-              />
-            </div>
+            isVideo ? (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="mt-2.5 mb-2 rounded-2xl overflow-hidden border border-zinc-800 bg-black max-h-96 flex items-center justify-center"
+              >
+                <video
+                  src={currentPost.image}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full max-h-96 object-contain rounded-2xl bg-black"
+                />
+              </div>
+            ) : (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowFullImage(true);
+                }}
+                className="mt-2.5 mb-2 rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-80 flex items-center justify-center cursor-pointer group/img"
+              >
+                <img
+                  src={currentPost.image}
+                  alt="Post visual"
+                  className="w-full h-auto max-h-80 object-cover group-hover/img:scale-[1.01] transition-transform duration-200"
+                  loading="lazy"
+                />
+              </div>
+            )
           )}
 
           {/* Action Row (min 44x44px tap targets, spaced evenly) */}
