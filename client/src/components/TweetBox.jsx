@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react';
 import { Image, Video, MapPin, X, Loader2, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI } from '../services/api';
+import LocationPickerModal from './LocationPickerModal';
 
 export default function TweetBox({ onPostCreated, placeholder = "What's the civic issue in your ward? Report here..." }) {
   const { user, isAuthenticated } = useAuth();
   const [text, setText] = useState('');
   const [ward, setWard] = useState(user?.ward || '');
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaType, setMediaType] = useState(null); // 'image' | 'video'
@@ -173,17 +175,36 @@ export default function TweetBox({ onPostCreated, placeholder = "What's the civi
                   <Video className="w-5 h-5" />
                 </label>
 
-                {/* Ward Tag Input */}
-                <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-xs text-slate-300">
-                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Ward / Area (e.g. Ward 12)"
-                    value={ward}
-                    onChange={(e) => setWard(e.target.value)}
-                    className="bg-transparent focus:outline-none text-xs w-28 sm:w-36 placeholder-slate-500 text-slate-200"
-                  />
-                </div>
+                {/* Location / Ward Picker */}
+                {ward ? (
+                  <div className="flex items-center space-x-1.5 bg-sky-500/15 border border-sky-500/30 text-sky-300 px-2.5 py-1 rounded-full text-xs font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span
+                      onClick={() => setIsLocationModalOpen(true)}
+                      className="cursor-pointer hover:underline truncate max-w-[120px] sm:max-w-[160px]"
+                      title={ward}
+                    >
+                      {ward}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setWard('')}
+                      className="text-sky-400/80 hover:text-white ml-0.5"
+                      title="Remove location"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="p-2 text-sky-400 hover:bg-sky-500/10 rounded-full cursor-pointer transition flex items-center"
+                    title="Add Location (GPS / Popular Places)"
+                  >
+                    <MapPin className="w-5 h-5" />
+                  </button>
+                )}
               </div>
 
               {/* Submit Button & Character Counter */}
@@ -210,6 +231,14 @@ export default function TweetBox({ onPostCreated, placeholder = "What's the civi
           </form>
         </div>
       </div>
+
+      {/* Location Picker Modal (GPS + Recommended Places) */}
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSelectLocation={(loc) => setWard(loc)}
+        currentLocation={ward}
+      />
     </div>
   );
 }

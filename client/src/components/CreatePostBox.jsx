@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react';
 import { Image, Video, MapPin, X, Loader2, Send, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI, usersAPI } from '../services/api';
+import LocationPickerModal from './LocationPickerModal';
 
 export default function CreatePostBox({ onPostCreated }) {
   const { user, isAuthenticated } = useAuth();
   const [text, setText] = useState('');
   const [location, setLocation] = useState('');
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaType, setMediaType] = useState(null); // 'image' | 'video'
@@ -320,17 +322,36 @@ export default function CreatePostBox({ onPostCreated }) {
                   <Video className="w-5 h-5" />
                 </label>
 
-                {/* Optional Location Input */}
-                <div className="flex items-center space-x-1 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-full text-xs text-zinc-300">
-                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="Location (optional)"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="bg-transparent focus:outline-none text-xs w-32 sm:w-44 text-zinc-200 placeholder-zinc-500"
-                  />
-                </div>
+                {/* Location Picker Button / Selected Pill */}
+                {location ? (
+                  <div className="flex items-center space-x-1.5 bg-sky-500/15 border border-sky-500/30 text-sky-300 px-2.5 py-1 rounded-full text-xs font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                    <span
+                      onClick={() => setIsLocationModalOpen(true)}
+                      className="cursor-pointer hover:underline truncate max-w-[120px] sm:max-w-[180px]"
+                      title={location}
+                    >
+                      {location}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setLocation('')}
+                      className="text-sky-400/80 hover:text-white ml-0.5"
+                      title="Remove location"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationModalOpen(true)}
+                    className="p-2 text-sky-400 hover:bg-sky-500/10 rounded-full cursor-pointer transition flex items-center"
+                    title="Add location (GPS / Popular Places)"
+                  >
+                    <MapPin className="w-5 h-5" />
+                  </button>
+                )}
               </div>
 
               {/* Character counter & Tweet Button */}
@@ -366,6 +387,14 @@ export default function CreatePostBox({ onPostCreated }) {
           </form>
         </div>
       </div>
+
+      {/* Location Picker Modal (GPS + Recommended Places) */}
+      <LocationPickerModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        onSelectLocation={(loc) => setLocation(loc)}
+        currentLocation={location}
+      />
     </div>
   );
 }
