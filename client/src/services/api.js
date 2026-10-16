@@ -36,6 +36,7 @@ export const postsAPI = {
     }),
   editPost: (id, data) => api.put(`/posts/${id}`, data),
   updateComplaintStatus: (id, data) => api.patch(`/posts/${id}/status`, data),
+  retryBmcIntegration: (id) => api.post(`/posts/${id}/retry-bmc`),
   deletePost: (id) => api.delete(`/posts/${id}`),
   toggleLike: (id) => api.post(`/posts/${id}/like`)
 };

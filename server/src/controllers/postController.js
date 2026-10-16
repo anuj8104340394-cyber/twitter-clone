@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const fs = require('fs');
 const path = require('path');
+const { isCivicComplaint, processPostIntegration, syncResolutionFromBmc } = require('../services/bmcService');
 
 // @desc    Get all posts (latest first with pagination)
 // @route   GET /api/posts
@@ -151,6 +152,23 @@ const createPost = async (req, res) => {
     const mentionedUsernames = [
       ...new Set(rawMentions.map((m) => m.slice(1).toLowerCase()))
     ];
+
+    // Check if post mentions @bmc and qualifies as a civic complaint
+    const mentionsBmc = mentionedUsernames.includes('bmc') || /@bmc\b/i.test(trimmedText);
+    const qualifiesAsComplaint = mentionsBmc && isCivicComplaint(trimmedText);
+
+    if (qualifiesAsComplaint) {
+      post.isComplaint = true;
+      post.integrationStatus = 'pending';
+      await post.save();
+
+      try {
+        await processPostIntegration(post._id);
+      } catch (bmcErr) {
+        console.warn(`[postController] BMC integration deferred for post ${post._id}:`, bmcErr.message);
+        // Post remains created and marked failed for subsequent retry; tweet creation is not broken
+      }
+    }
 
     if (mentionedUsernames.length > 0) {
       try {
@@ -659,6 +677,96 @@ const updateComplaintStatus = async (req, res) => {
   }
 };
 
+// @desc    Retry BMC integration for a complaint post
+// @route   POST /api/posts/:id/retry-bmc
+const retryBmcIntegration = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: 'Post not found'
+      });
+    }
+
+    const isAuthor = post.author.toString() === req.user._id.toString();
+    const isAdminOrStaff = req.user.role === 'admin' || req.user.role === 'official';
+    if (!isAuthor && !isAdminOrStaff) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to retry integration for this post'
+      });
+    }
+
+    if (!post.isComplaint) {
+      return res.status(400).json({
+        success: false,
+        message: 'Post is not marked as a civic complaint'
+      });
+    }
+
+    const updatedPost = await processPostIntegration(post._id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'BMC integration processed',
+      integrationStatus: updatedPost?.integrationStatus,
+      bmcComplaintId: updatedPost?.bmcComplaintId,
+      bmcReplied: updatedPost?.bmcReplied,
+      post: updatedPost
+    });
+  } catch (error) {
+    console.error('Error retrying BMC integration:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to retry BMC integration'
+    });
+  }
+};
+
+// @desc    Handle resolution & status synchronization from BMC backend
+// @route   POST /api/posts/bmc-resolve
+const handleBmcResolutionSync = async (req, res) => {
+  try {
+    const { complaintId, externalReference, oldStatus, newStatus, eventKey, note } = req.body;
+
+    if (!complaintId && !externalReference) {
+      return res.status(400).json({
+        success: false,
+        message: 'complaintId or externalReference is required'
+      });
+    }
+
+    if (!newStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'newStatus is required'
+      });
+    }
+
+    const result = await syncResolutionFromBmc({
+      complaintId,
+      externalReference,
+      oldStatus,
+      newStatus,
+      eventKey,
+      note
+    });
+
+    if (result.notFound) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error handling BMC resolution sync:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to sync BMC resolution'
+    });
+  }
+};
+
 module.exports = {
   getPosts,
   getPostById,
@@ -669,5 +777,7 @@ module.exports = {
   getFollowingPosts,
   getPostsByHashtag,
   getComplaints,
-  updateComplaintStatus
+  updateComplaintStatus,
+  retryBmcIntegration,
+  handleBmcResolutionSync
 };

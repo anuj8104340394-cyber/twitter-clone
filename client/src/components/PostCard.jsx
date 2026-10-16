@@ -11,7 +11,10 @@ import {
   Check,
   Pencil,
   X,
-  Loader2
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { postsAPI } from '../services/api';
@@ -36,6 +39,23 @@ export default function PostCard({ post, onDelete, onUpdate }) {
 
   // Image full preview modal
   const [showFullImage, setShowFullImage] = useState(false);
+  const [isRetryingBmc, setIsRetryingBmc] = useState(false);
+
+  const handleRetryBmc = async (e) => {
+    e.stopPropagation();
+    setIsRetryingBmc(true);
+    try {
+      const res = await postsAPI.retryBmcIntegration(currentPost._id);
+      if (res.data.success && res.data.post) {
+        setCurrentPost(res.data.post);
+        if (onUpdate) onUpdate(res.data.post);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to retry BMC integration');
+    } finally {
+      setIsRetryingBmc(false);
+    }
+  };
 
   useEffect(() => {
     setCurrentPost(post);
@@ -218,6 +238,55 @@ export default function PostCard({ post, onDelete, onUpdate }) {
               </div>
             )}
           </div>
+
+          {/* Civic Complaint & BMC Integration Badge */}
+          {(currentPost.isComplaint || currentPost.bmcComplaintId) && (
+            <div className="my-2 p-2 rounded-xl bg-sky-950/40 border border-sky-800/40 text-xs flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center space-x-2 flex-wrap">
+                <span className="font-semibold text-sky-400 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  BMC Complaint
+                </span>
+                {currentPost.bmcComplaintId && (
+                  <span className="font-mono bg-sky-900/60 text-sky-200 px-2 py-0.5 rounded text-[11px] border border-sky-700/50" title={currentPost.bmcComplaintId}>
+                    ID: #{currentPost.bmcComplaintId.slice(0, 8)}...
+                  </span>
+                )}
+                {currentPost.status === 'resolved' && (
+                  <span className="inline-flex items-center gap-1 bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 px-2 py-0.5 rounded text-[11px] font-semibold">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Resolved
+                  </span>
+                )}
+                {currentPost.integrationStatus === 'registered' && (
+                  <span className="inline-flex items-center gap-1 text-emerald-400 text-[11px] font-medium">
+                    <CheckCircle2 className="w-3 h-3" /> Registered
+                  </span>
+                )}
+                {(currentPost.integrationStatus === 'pending' || currentPost.integrationStatus === 'processing') && (
+                  <span className="inline-flex items-center gap-1 text-amber-400 text-[11px]">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Forwarding...
+                  </span>
+                )}
+                {currentPost.integrationStatus === 'failed' && (
+                  <span className="inline-flex items-center gap-1 text-rose-400 text-[11px]">
+                    <AlertCircle className="w-3 h-3" /> Sync failed
+                  </span>
+                )}
+              </div>
+
+              {currentPost.integrationStatus === 'failed' && isAuthor && (
+                <button
+                  onClick={handleRetryBmc}
+                  disabled={isRetryingBmc}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-rose-900/50 hover:bg-rose-900/80 text-rose-200 border border-rose-700/50 text-[11px] font-medium transition disabled:opacity-50"
+                  title="Retry forwarding to BMC"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isRetryingBmc ? 'animate-spin' : ''}`} />
+                  <span>Retry BMC</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Post Text */}
           <p className="text-[15px] text-zinc-100 whitespace-pre-line leading-relaxed my-2 break-words">

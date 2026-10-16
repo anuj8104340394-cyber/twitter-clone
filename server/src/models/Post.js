@@ -53,6 +53,42 @@ const postSchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    bmcComplaintId: {
+      type: String,
+      trim: true,
+      default: null,
+      index: true
+    },
+    integrationStatus: {
+      type: String,
+      enum: ['none', 'pending', 'processing', 'registered', 'failed'],
+      default: 'none',
+      index: true
+    },
+    integrationError: {
+      type: String,
+      trim: true,
+      default: null
+    },
+    bmcReplied: {
+      type: Boolean,
+      default: false
+    },
+    bmcReplyCommentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Comment',
+      default: null
+    },
+    lastResolvedEventKey: {
+      type: String,
+      trim: true,
+      default: null,
+      index: true
+    },
+    resolutionCount: {
+      type: Number,
+      default: 0
+    },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,

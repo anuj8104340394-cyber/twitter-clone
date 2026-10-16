@@ -13,7 +13,9 @@ import {
   Trash2,
   Check,
   Pencil,
-  X
+  X,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { postsAPI, commentsAPI } from '../services/api';
@@ -44,7 +46,21 @@ export default function PostDetail() {
   const [editLocation, setEditLocation] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
+  const [isRetryingBmc, setIsRetryingBmc] = useState(false);
 
+  const handleRetryBmc = async () => {
+    setIsRetryingBmc(true);
+    try {
+      const res = await postsAPI.retryBmcIntegration(id);
+      if (res.data.success && res.data.post) {
+        setPost(res.data.post);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to retry BMC integration');
+    } finally {
+      setIsRetryingBmc(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -291,6 +307,49 @@ export default function PostDetail() {
             </div>
           )}
         </div>
+
+        {/* Civic Complaint & BMC Integration Card */}
+        {(post.isComplaint || post.bmcComplaintId) && (
+          <div className="my-3 p-3 rounded-xl bg-sky-950/40 border border-sky-800/40 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 flex-wrap">
+              <span className="font-semibold text-sky-400 flex items-center gap-1">
+                <ShieldCheck className="w-4 h-4" />
+                BMC Civic Complaint
+              </span>
+              {post.bmcComplaintId && (
+                <span className="font-mono bg-sky-900/60 text-sky-200 px-2 py-0.5 rounded text-xs border border-sky-700/50">
+                  Ref ID: #{post.bmcComplaintId}
+                </span>
+              )}
+              {post.integrationStatus === 'registered' && (
+                <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Registered with BMC
+                </span>
+              )}
+              {(post.integrationStatus === 'pending' || post.integrationStatus === 'processing') && (
+                <span className="inline-flex items-center gap-1 text-amber-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Forwarding to BMC...
+                </span>
+              )}
+              {post.integrationStatus === 'failed' && (
+                <span className="inline-flex items-center gap-1 text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5" /> Forwarding failed
+                </span>
+              )}
+            </div>
+
+            {post.integrationStatus === 'failed' && isAuthor && (
+              <button
+                onClick={handleRetryBmc}
+                disabled={isRetryingBmc}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded bg-rose-900/50 hover:bg-rose-900/80 text-rose-200 border border-rose-700/50 text-xs font-medium transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRetryingBmc ? 'animate-spin' : ''}`} />
+                <span>Retry BMC Registration</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Text */}
         <p className="text-base text-zinc-100 whitespace-pre-line leading-relaxed my-3 break-words">
